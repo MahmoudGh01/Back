@@ -10,3 +10,4 @@ python-dotenv~=1.0.1
 oauthlib~=3.2.2
 google~=3.0.0
 requests
+flask_cors

@@ -103,9 +103,11 @@ class UserList(Resource):
                     print("Pinged your deployment. You successfully connected to MongoDB!")
                 except Exception as e:
                     print(e)
+                    return 401
 
                 # Delegate to AuthController
-                return client.users
+                return 200
+
         @api.route('/set-password')
         class SetPassword(Resource):
             @api.expect(set_password_model, validate=True)

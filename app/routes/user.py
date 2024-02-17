@@ -92,7 +92,7 @@ class UserList(Resource):
             return AuthController.reset_password(mongo.db, email, new_password)
 
         @api.route('/ping')
-        class ResetPassword(Resource):
+        class ping(Resource):
             def post(self):
                 """Reset password"""
 

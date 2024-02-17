@@ -1,9 +1,12 @@
 from flask import redirect
 from flask import request
 from flask_jwt_extended import jwt_required
+from flask_pymongo import MongoClient
 from flask_restx import Resource, fields
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+from pymongo.server_api import ServerApi
+
 from app import app, api, mongo, CLIENT_ID, URL_DICT, CLIENT, DATA
 from app.Controllers.auth import AuthController
 from app.Controllers.user_controller import UserController
@@ -88,6 +91,21 @@ class UserList(Resource):
             # Delegate to AuthController
             return AuthController.reset_password(mongo.db, email, new_password)
 
+        @api.route('/ping')
+        class ResetPassword(Resource):
+            def post(self):
+                """Reset password"""
+
+                client = MongoClient(app.config['MONGO_URI'], server_api=ServerApi('1'))
+                # Send a ping to confirm a successful connection
+                try:
+                    res = client.admin.command('ping')
+                    print("Pinged your deployment. You successfully connected to MongoDB!")
+                except Exception as e:
+                    print(e)
+
+                # Delegate to AuthController
+                return client.users
         @api.route('/set-password')
         class SetPassword(Resource):
             @api.expect(set_password_model, validate=True)

@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
-from flask_pymongo import PyMongo
+from flask_pymongo import PyMongo, MongoClient
 from flask_restx import Api
 from oauthlib import oauth2
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,7 +10,7 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-mongo = PyMongo(app)
+mongo = MongoClient(app.config['MONGO_URI'], tlsAllowInvalidCertificates=True)
 api = Api(app)
 mail = Mail(app)
 # Initialize the JWTManager with your Flask user

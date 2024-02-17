@@ -51,7 +51,7 @@ class AuthController:
         PasswordResetCode.insert_code(db, email, new_verification_code)
 
         subject = "Password Reset Verification Code"
-        send_email1(email, subject, new_verification_code)
+        send_email(email, subject, new_verification_code)
 
         return {'message': 'Verification code sent to your email'}, 200
 

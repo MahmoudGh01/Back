@@ -4,7 +4,7 @@ class Config:
     MONGO_URI = "mongodb+srv://mongo:mongo@cluster0.3t1xgux.mongodb.net/?retryWrites=true&w=majority"
 
     FLASK_JWT_SECRET_KEY = '7e4d21e87dd2238e8cf031df'
-    UPLOAD_FOLDER = './Uploads'
+    UPLOAD_FOLDER = '/Users/mahmoudgharbi/Documents/Mahmoud/Back/Uploads'
 
     # Flask-Mail configuration
     MAIL_SERVER = 'smtp.gmail.com'

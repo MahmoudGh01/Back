@@ -36,3 +36,7 @@ set_password_model = api.model('ResetPassword', {
     'email': fields.String(required=True, description='User email'),
     'password': fields.String(required=True, description='New password')
 })
+file_model = api.model('File', {
+    'filename': fields.String(required=True, description='Filename'),
+
+})

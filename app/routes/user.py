@@ -1,4 +1,6 @@
-from flask import redirect
+import os
+
+from flask import redirect, jsonify, send_from_directory, abort
 from flask import request
 from flask_jwt_extended import jwt_required
 from flask_pymongo import MongoClient
@@ -6,15 +8,15 @@ from flask_restx import Resource, fields
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from pymongo.server_api import ServerApi
+from werkzeug.utils import secure_filename
 
 from app import app, api, mongo, CLIENT_ID, URL_DICT, CLIENT, DATA
 from app.Controllers.auth import AuthController
 from app.Controllers.user_controller import UserController
 from app.Models.Payloads import signin_model, forgot_password_model, verify_code_model, set_password_model, \
-    reset_password_model
+    reset_password_model, file_model
 
-
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
 
 def allowed_file(filename):
@@ -201,3 +203,6 @@ def home():
     mongo.db.users.insert_one(user_data)
 
     return {'user_id': user_data}
+
+
+

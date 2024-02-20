@@ -69,4 +69,4 @@ class GetFile(Resource):
             return send_from_directory(app.config['UPLOAD_FOLDER'], safe_filename, as_attachment=True)
         except FileNotFoundError:
             # Using 404 is more appropriate here as it indicates "Not Found"
-            abort(404)
+            return {'message': 'No file found'}, 404

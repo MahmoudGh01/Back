@@ -1,4 +1,5 @@
 class Config:
+
     SECRET_KEY = 'your_secret_key'
 
     MONGO_URI = "mongodb+srv://mongo:mongo@cluster0.3t1xgux.mongodb.net/?retryWrites=true&w=majority"
@@ -6,7 +7,7 @@ class Config:
     FLASK_JWT_SECRET_KEY = '7e4d21e87dd2238e8cf031df'
     UPLOAD_FOLDER = './Uploads'
 
-    # Flask-Mail configuration
+   # Flask-Mail configuration
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_TLS = False

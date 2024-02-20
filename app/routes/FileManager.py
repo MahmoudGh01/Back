@@ -32,6 +32,7 @@ class UploadFile(Resource):
 
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
+            print("Uploaded to : "+file_path)
 
             # You could add additional processing here, such as generating a file preview
 
@@ -46,7 +47,7 @@ class GetFiles(Resource):
         files = []
         for filename in os.listdir(app.config['UPLOAD_FOLDER']):
             path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
+            print("Fetched files from: "+path)
             if os.path.isfile(path):
                 files.append(filename)
 

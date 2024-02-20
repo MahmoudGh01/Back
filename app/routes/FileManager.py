@@ -13,6 +13,7 @@ def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 upload_parser = api.parser()
 upload_parser.add_argument('resume', location='files', type='FileStorage', required=True)
 
@@ -32,11 +33,11 @@ class UploadFile(Resource):
 
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
-            print("Uploaded to : "+file_path)
+            print("Uploaded to : " + file_path)
 
             # You could add additional processing here, such as generating a file preview
 
-            return 200
+            return file_path, 200
         else:
             return jsonify({'error': 'File not allowed'}), 400
 
@@ -47,7 +48,7 @@ class GetFiles(Resource):
         files = []
         for filename in os.listdir(app.config['UPLOAD_FOLDER']):
             path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            print("Fetched files from: "+path)
+            print("Fetched files from: " + path)
             if os.path.isfile(path):
                 files.append(filename)
 

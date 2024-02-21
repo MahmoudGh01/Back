@@ -1,20 +1,19 @@
-import os
-
-from flask import redirect, jsonify, send_from_directory, abort
+from flask import redirect, jsonify
 from flask import request
-from flask_jwt_extended import jwt_required
-from flask_pymongo import MongoClient
-from flask_restx import Resource, fields
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token
+
+from flask_restx import Resource
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from pymongo.server_api import ServerApi
-from werkzeug.utils import secure_filename
 
 from app import app, api, mongo, CLIENT_ID, URL_DICT, CLIENT, DATA
 from app.Controllers.auth import AuthController
 from app.Controllers.user_controller import UserController
 from app.Models.Payloads import signin_model, forgot_password_model, verify_code_model, set_password_model, \
-    reset_password_model, file_model
+    reset_password_model
+from app.Models.user import User
+from app.Repository.User import UserRepository
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
@@ -40,9 +39,10 @@ class Signup(Resource):
             email = request.form.get('email')
             name = request.form.get('name')
             password = request.form.get('password')
+            role = request.form.get('role')
 
             # Delegate to AuthController
-            return AuthController.signup(email, name, password, file)
+            return AuthController.signup(mongo, email, name, password, file, role)
         else:
             return {'message': 'Invalid file type'}, 400
 
@@ -59,7 +59,7 @@ class Signin(Resource):
         password = json_data.get('password')
 
         # Delegate to AuthController
-        return AuthController.signin(email, password)
+        return AuthController.signin(mongo, email, password)
 
 
 # Assuming necessary imports are already done
@@ -79,7 +79,7 @@ class UserList(Resource):
         def post(self):
             """Forgot password"""
             email = request.json.get('email')
-            return AuthController.forgot_password(mongo.db, email)
+            return AuthController.forgot_password(mongo, email)
 
     @api.route('/reset_password')
     class ResetPassword(Resource):
@@ -91,17 +91,16 @@ class UserList(Resource):
             new_password = json_data['new_password']
 
             # Delegate to AuthController
-            return AuthController.reset_password(mongo.db, email, new_password)
+            return AuthController.reset_password(mongo, email, new_password)
 
         @api.route('/ping')
         class ping(Resource):
             def post(self):
                 """Reset password"""
 
-                client = MongoClient(app.config['MONGO_URI'], server_api=ServerApi('1'))
                 # Send a ping to confirm a successful connection
                 try:
-                    res = client.admin.command('ping')
+                    res = mongo.admin.command('ping')
                     print("Pinged your deployment. You successfully connected to MongoDB!")
                 except Exception as e:
                     print(e)
@@ -120,7 +119,7 @@ class UserList(Resource):
                 new_password = json_data['password']
 
                 # Delegate the business logic to the AuthController
-                return AuthController.set_password(mongo.db, email, new_password)
+                return AuthController.set_password(mongo, email, new_password)
 
         @api.route('/verify_code')
         class VerifyCode(Resource):
@@ -132,7 +131,7 @@ class UserList(Resource):
                 code = json_data['code']
 
                 # Delegate business logic to the AuthController
-                return AuthController.verify_code(mongo.db, email, code)
+                return AuthController.verify_code(mongo, email, code)
 
 
 def exchange_token(code):
@@ -156,53 +155,87 @@ def exchange_token(code):
         return None
 
 
-@app.route('/google-sign-in', methods=['GET', 'POST'])
-def home():
-    if request.method == 'POST':
-        # Process the POST request data here
-        pass
+@api.route('/google-sign-in', methods=['GET', 'POST'])
+class GoogleSignIn(Resource):
+    def post(self):
+        # Check if the request is JSON or form-encoded
 
-    if request.is_json:
-        code = request.get_json().get('code')
-    else:
-        code = request.form.get('code')
+        if request.is_json:
+            code = request.get_json().get('code')
+        else:
+            code = request.form.get('code')
 
-    print(code)
+        print(code)
 
-    if not code:
-        # Redirect to the Google Sign-In link if the 'code' parameter is missing
-        google_signin_url = CLIENT.prepare_request_uri(
-            URL_DICT['google_oauth'],
-            redirect_uri=DATA['redirect_uri'],
-            scope=DATA['scope'],
-            prompt=DATA['prompt']
-        )
-        return redirect(google_signin_url)
+        # Redirect to Google Sign-In if 'code' parameter is missing
+        if not code:
+            google_signin_url = CLIENT.prepare_request_uri(
+                URL_DICT['google_oauth'],
+                redirect_uri=DATA['redirect_uri'],
+                scope=DATA['scope'],
+                prompt=DATA['prompt']
+            )
+            return redirect(google_signin_url)
 
-    # Exchange authorization code for ID token
-    id_token_info = exchange_token(code)
+        # Exchange authorization code for ID token
+        id_token_info = exchange_token(code)
 
-    if id_token_info is None:
-        return "Error during token exchange"
+        if id_token_info is None:
+            return "Error during token exchange", 400
 
-    print(id_token_info)
+        # Extract necessary information from the ID token info
+        email = id_token_info.get('email')
+        sub = id_token_info.get('sub')  # Google user ID
+        name = id_token_info.get('name')
+        picture = id_token_info.get('picture')
 
-    # Extract necessary information from the ID token info
-    email = id_token_info.get('email')
-    sub = id_token_info.get('sub')  # Google user ID
-    name = id_token_info.get('name')
-    picture = id_token_info.get('picture')
-    password = "password"
-    # You can now store or retrieve user data from MongoDB as needed
-    # For example, you may want to save the user information to your database
-    user_data = {
-        'name': id_token_info.get('name', ''),
-        'email': email,
-        'google_id': sub
-    }
-    mongo.db.users.insert_one(user_data)
+        # Insert user data into MongoDB
+        user_data = {
+            'name': name,
+            'email': email,
+            'picture': picture,
+            'google_id': sub
+        }
+        UserRepository.find_by_email(mongo, email)
 
-    return {'user_id': user_data}
+        token = create_access_token(identity=email)
+
+        result = mongo.db.users.insert_one(user_data)
+        user_id = result.inserted_id
+        # Prepare the response to match the Flutter fromJson method
+        response_body = {
+            "user": {
+                "_id": str(user_id),
+                "name": user_data['name'],
+                "email": user_data['email'],
+                # Assume default values for fields not present in the user_data
+                "password": "",  # It's unusual to send passwords back. Consider removing this.
+                "file": picture  # If you have a profile picture path, include it here.
+            },
+            "token": token
+        }
+
+        return response_body, 200
 
 
-
+@api.route('/whoami', methods=['GET'])
+class WhoAmI(Resource):
+    @jwt_required()
+    def get(self):
+        claims = get_jwt()
+        # Assuming you have an 'identity' claim containing the user's email or username
+        identity = get_jwt_identity()
+        if identity:
+            user = UserRepository.find_by_email(mongo, identity)
+            if user:
+                # Customize this response based on what user information you want to return
+                user_info = {
+                    "email": user.get("email"),
+                    "name": user.get("name"),
+                    "role": user.get("role")
+                }
+                return {"user": user_info, "claims": claims}, 200
+            else:
+                return {"msg": "User not found"}, 404
+        else:
+            return {"msg": "Invalid JWT claims"}, 400

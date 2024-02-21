@@ -8,19 +8,20 @@ from flask_mail import Message
 from werkzeug.utils import secure_filename
 
 from app import mail, app
-from app.Models.user import User, PasswordResetCode
+from app.Repository.User import UserRepository, PasswordResetCode
+
 from app.Utils.utils import hash_password, verify_password
 
 
 class AuthController:
     @staticmethod
     def set_password(db, email, new_password):
-        user = User.find_by_email(email)
+        user = UserRepository.find_by_email(db,email)
         if not user:
             return {'error': f'Email {email} not found'}, 404
 
         hashed_password = hash_password(new_password)
-        User.update_password(db, email, hashed_password)
+        UserRepository.update_password(db, email, hashed_password)
 
         return {'message': 'Password reset successful'}, 200
 
@@ -32,18 +33,18 @@ class AuthController:
         return {'message': 'Verification code is valid'}, 200
 
     def reset_password(db, email, new_password):
-        user = User.find_by_email(email)
+        user = UserRepository.find_by_email(email)
         if not user:
             return {'error': 'Email not found'}, 404
 
         hashed_password = hash_password(new_password)
-        User.update_password(db, email, hashed_password)
+        UserRepository.update_password(db, email, hashed_password)
 
         return {'message': 'Password reset successful'}, 200
 
     @staticmethod
     def forgot_password(db, email):
-        user = User.find_by_email(email)
+        user = UserRepository.find_by_email(email)
         if not user:
             return {'error': 'Email not found'}, 404
 
@@ -56,7 +57,7 @@ class AuthController:
         return {'message': 'Verification code sent to your email'}, 200
 
     @staticmethod
-    def signup(email, name, password, file):
+    def signup(db,email, name, password, file,role):
         if not (email and name and password and file):
             return {'message': 'Missing information'}, 400
 
@@ -64,16 +65,16 @@ class AuthController:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
 
-        existing_user = User.find_by_email(email)
+        existing_user = UserRepository.find_by_email(db,email)
         if existing_user:
             return {'message': 'Email already exists'}, 409
 
-        user_id = User.create_user(email, password, name, file_path)
+        user_id = UserRepository.create_user(db,email, password, name, file_path,role)
         return {'message': 'User created successfully', 'user_id': str(user_id)}, 201
 
     @staticmethod
-    def signin(email, password):
-        user = User.find_by_email(email)
+    def signin(db,email, password):
+        user = UserRepository.find_by_email(db,email)
         if user and verify_password(user['password'], password):
             access_token = create_access_token(identity=email)
             user_data = {

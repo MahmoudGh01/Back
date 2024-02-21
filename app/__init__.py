@@ -5,6 +5,8 @@ from flask_pymongo import PyMongo, MongoClient
 from flask_restx import Api
 from oauthlib import oauth2
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from app.Repository.User import UserRepository
 from config import Config
 
 app = Flask(__name__)
@@ -17,7 +19,16 @@ mail = Mail(app)
 jwt = JWTManager(app)
 
 
-# Callback function to check if a token is missing
+@jwt.additional_claims_loader
+def add_claims_to_access_token(identity):
+    # Assuming identity is the email of the user
+    u = UserRepository.find_by_email(mongo, identity)
+    if user:
+        # Ensure you handle the case where user might be None
+        return {"role": u.get("role")}
+    return {}
+
+
 @jwt.unauthorized_loader
 def missing_token_callback():
     return jsonify({
@@ -30,8 +41,8 @@ def missing_token_callback():
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
     return jsonify({
-        'error': 'token_expired',
-        'message': 'The token has expired'
+        'error': jwt_header,
+        'message': jwt_payload
     }), 401
 
 
@@ -89,4 +100,4 @@ URL_DICT = {
 
 CLIENT = oauth2.WebApplicationClient(CLIENT_ID)
 
-from app.routes import user,FileManager
+from app.routes import user, FileManager

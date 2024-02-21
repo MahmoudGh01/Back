@@ -40,3 +40,13 @@ file_model = api.model('File', {
     'filename': fields.String(required=True, description='Filename'),
 
 })
+edit_user_model = api.model('EditUser', {
+    'email': fields.String(required=False, description='The user\'s email address'),
+    'birthdate': fields.String(required=False, description='The user\'s date of birth'),
+    'title': fields.String(required=False, description='The user\'s title'),
+    'password': fields.String(required=False, description='The user\'s new or updated password'),
+    'lastname': fields.String(required=False, description='The user\'s last name'),
+    'name': fields.String(required=False, description='The user\'s name'),
+    'profile_picture': fields.String(required=False, description='URL to the user\'s profile picture'),
+    'role': fields.String(required=False, description='The role of the user in the system'),
+})

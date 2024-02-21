@@ -1,10 +1,10 @@
-from app.Models.user import User
+from app.Models.userModel import User
 from app.Utils.utils import hash_password
 
 
 class UserRepository:
     @staticmethod
-    def create_user(db, email, password, name, profile_picture=None, role="user", google_id=None):
+    def create_user(db, email, password, name, lastname=None, title=None, birthdate=None, profile_picture=None, role="user", google_id=None):
         """
         Creates a new user document in the MongoDB database.
         """
@@ -13,11 +13,13 @@ class UserRepository:
             "email": email,
             "password": hashed_password,
             "name": name,
+            "lastname": lastname,
+            "title": title,
+            "birthdate": birthdate,
             "role": role,
             "profile_picture": profile_picture,
             "google_id": google_id
         }
-        # u= User(email, birthdate, title, password, lastname, name, profile_picture=None, role="user")
         result = db.db.users.insert_one(user_data)
         user_data['_id'] = str(result.inserted_id)  # Convert ObjectId to string
         return user_data

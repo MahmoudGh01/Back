@@ -6,7 +6,7 @@ from flask_restx import Api
 from oauthlib import oauth2
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.Repository.User import UserRepository
+from app.Repository.UserRepo import UserRepository
 from config import Config
 
 app = Flask(__name__)
@@ -23,7 +23,7 @@ jwt = JWTManager(app)
 def add_claims_to_access_token(identity):
     # Assuming identity is the email of the user
     u = UserRepository.find_by_email(mongo, identity)
-    if user:
+    if userRoute:
         # Ensure you handle the case where user might be None
         return {"role": u.get("role")}
     return {}
@@ -100,4 +100,4 @@ URL_DICT = {
 
 CLIENT = oauth2.WebApplicationClient(CLIENT_ID)
 
-from app.routes import user, FileManager
+from app.routes import userRoute, FileManager

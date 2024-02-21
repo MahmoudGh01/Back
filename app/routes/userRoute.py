@@ -11,9 +11,10 @@ from app import app, api, mongo, CLIENT_ID, URL_DICT, CLIENT, DATA
 from app.Controllers.auth import AuthController
 from app.Controllers.user_controller import UserController
 from app.Models.Payloads import signin_model, forgot_password_model, verify_code_model, set_password_model, \
-    reset_password_model
-from app.Models.user import User
-from app.Repository.User import UserRepository
+    reset_password_model, edit_user_model
+from app.Models.userModel import User
+from app.Repository.UserRepo import UserRepository
+from app.Utils.utils import verify_password
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
@@ -189,33 +190,47 @@ class GoogleSignIn(Resource):
         name = id_token_info.get('name')
         picture = id_token_info.get('picture')
 
-        # Insert user data into MongoDB
-        user_data = {
-            'name': name,
-            'email': email,
-            'picture': picture,
-            'google_id': sub
-        }
-        UserRepository.find_by_email(mongo, email)
+        # Placeholder or user-provided values for missing fields from Google
+        birthdate = "Not provided"  # Placeholder, consider updating your model or UX to collect this
+        title = "Not provided"  # Placeholder, consider updating your model or UX to collect this
+        lastname = "Not provided"  # Placeholder, consider asking the user or parsing the 'name' if possible
 
-        token = create_access_token(identity=email)
+        # Check if user exists to prevent duplicate entries
+        user = UserRepository.find_by_email(mongo, email)
+        if user is None:
+            # Create new user if does not exist
+            user_id = UserRepository.create_user(mongo, email, "", name, lastname, title, birthdate, picture, "user",
+                                                 sub)
+            user_data = {
+                "_id": user_id.get('_id'),
+                "email": email,
+                "password": "",
+                "name": name,
+                "lastname": lastname,
+                "title": title,
+                "birthdate": birthdate,
+                "role": "user",
+                "profile_picture": picture,
+                "google_id": sub
+            }
+        else:
+            # Handle existing user scenario, maybe update existing records or just fetch user details
 
-        result = mongo.db.users.insert_one(user_data)
-        user_id = result.inserted_id
-        # Prepare the response to match the Flutter fromJson method
-        response_body = {
-            "user": {
-                "_id": str(user_id),
-                "name": user_data['name'],
-                "email": user_data['email'],
-                # Assume default values for fields not present in the user_data
-                "password": "",  # It's unusual to send passwords back. Consider removing this.
-                "file": picture  # If you have a profile picture path, include it here.
-            },
-            "token": token
-        }
+            user_data = {
+                "_id": str(user['_id']),
+                "lastname": lastname,
+                "title": title,
+                "birthdate": birthdate,
+                "role": "USER",
+                "password": user['password'],
+                "name": user['name'],
+                "email": user['email'],
+                "profile_picture": picture,
+                "google_id": sub
+            }
+        access_token = create_access_token(identity=email)
 
-        return response_body, 200
+        return {"token": access_token, "user": user_data}, 200
 
 
 @api.route('/whoami', methods=['GET'])
@@ -239,3 +254,23 @@ class WhoAmI(Resource):
                 return {"msg": "User not found"}, 404
         else:
             return {"msg": "Invalid JWT claims"}, 400
+
+
+@api.route('/edit-user/<user_id>')
+class EditUser(Resource):
+    # @jwt_required()  # If the user must be logged in to edit their data
+    @api.expect(edit_user_model, validate=True)  # Using a defined request payload validation
+    def put(self, user_id):
+        """
+        Functionality: Updates user properties based on the email and/or available methods.
+        - First, find the specific user with the parameter 'user_id'.
+        - Update the member properties in the data store that are allowed to be updated.
+        - Vehicle for changes could be the data from a combination of the validated model,
+          by checking incoming key, values in a model payload, or other business logic.
+        """
+
+        result = UserController.edit_user(db=mongo.db, user_id=user_id, **api.payload)
+        if result:
+            return {'message': 'User updated successfully'}, 200
+        else:
+            return {'message': 'An error occurred, user not found or other error info.'}, 404

@@ -8,7 +8,7 @@ from flask_mail import Message
 from werkzeug.utils import secure_filename
 
 from app import mail, app
-from app.Repository.User import UserRepository, PasswordResetCode
+from app.Repository.UserRepo import UserRepository, PasswordResetCode
 
 from app.Utils.utils import hash_password, verify_password
 
@@ -69,7 +69,7 @@ class AuthController:
         if existing_user:
             return {'message': 'Email already exists'}, 409
 
-        user_id = UserRepository.create_user(db,email, password, name, file_path,role)
+        user_id = UserRepository.create_user(db,email, password, name, profile_picture=file_path,role=role)
         return {'message': 'User created successfully', 'user_id': str(user_id)}, 201
 
     @staticmethod
@@ -78,6 +78,7 @@ class AuthController:
         if user and verify_password(user['password'], password):
             access_token = create_access_token(identity=email)
             user_data = {
+                "password": user['password'],
                 "name": user['name'],
                 "email": user['email'],
                 "_id": str(user['_id'])  # Assuming MongoDB usage

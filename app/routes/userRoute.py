@@ -67,7 +67,7 @@ class Signin(Resource):
 
 @api.route('/users')
 class UserList(Resource):
-    @jwt_required()
+    #@jwt_required()
     def get(self):
         """List all users"""
         # Directly using mongo.db might require you to import or access the database instance appropriately

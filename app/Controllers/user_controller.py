@@ -1,4 +1,5 @@
 from app.Models.userModel import User
+from app.Repository import UserRepo
 
 
 class UserController:
@@ -32,7 +33,7 @@ class UserController:
         return "User updated successfully", 200
     @staticmethod
     def get_all_users(db):
-        users = User.find_all(db)
+        users = UserRepo.UserRepository.find_all(db)
         serialized_users = []
         for user in users:
             user['_id'] = str(user['_id'])  # Convert ObjectId to string

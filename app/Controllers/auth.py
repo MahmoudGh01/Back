@@ -16,7 +16,7 @@ from app.Utils.utils import hash_password, verify_password
 class AuthController:
     @staticmethod
     def set_password(db, email, new_password):
-        user = UserRepository.find_by_email(db,email)
+        user = UserRepository.find_by_email(db, email)
         if not user:
             return {'error': f'Email {email} not found'}, 404
 
@@ -57,24 +57,20 @@ class AuthController:
         return {'message': 'Verification code sent to your email'}, 200
 
     @staticmethod
-    def signup(db,email, name, password, file,role):
-        if not (email and name and password and file):
+    def signup(db, email, name, password, role="User"):
+        if not (email and name and password):
             return {'message': 'Missing information'}, 400
 
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-
-        existing_user = UserRepository.find_by_email(db,email)
+        existing_user = UserRepository.find_by_email(db, email)
         if existing_user:
             return {'message': 'Email already exists'}, 409
 
-        user_id = UserRepository.create_user(db,email, password, name, profile_picture=file_path,role=role)
+        user_id = UserRepository.create_user(db, email, password, name, role=role)
         return {'message': 'User created successfully', 'user_id': str(user_id)}, 201
 
     @staticmethod
-    def signin(db,email, password):
-        user = UserRepository.find_by_email(db,email)
+    def signin(db, email, password):
+        user = UserRepository.find_by_email(db, email)
         if user and verify_password(user['password'], password):
             access_token = create_access_token(identity=email)
             user_data = {

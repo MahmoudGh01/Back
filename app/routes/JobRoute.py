@@ -12,13 +12,16 @@ job_controller = JobController(mongo)
 
 # Define the Swagger model for a job
 job_model = api.model('Job', {
-    'job_title': fields.String(required=True, description='Job Title'),
-    'job_description': fields.String(required=True, description='Job Description'),
+    'jobTitle': fields.String(required=True, description='Job Title'),
+    'description': fields.String(required=True, description='Job Description'),
     'company_information': fields.String(required=True, description='Company Information'),
     'location': fields.String(required=True, description='Location'),
     'employment_type': fields.String(required=True, description='Employment Type'),
     'salary_compensation': fields.String(required=True, description='Salary and Compensation'),
-    'skills_qualifications': fields.String(required=True, description='Skills and Qualifications'),
+    'requirements': fields.List(fields.Nested(api.model('Requirements', {
+        'name': fields.String(required=True, description='Skill Name'),
+
+    })), required=True, description='List of Job Skills'),
 })
 
 

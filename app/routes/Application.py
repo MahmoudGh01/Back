@@ -2,15 +2,16 @@ import base64
 import os
 
 from bson import ObjectId
-from flask_cors import CORS
 
-from app import app, mongo
+from app import app, mongo, api
 from flask import Flask, request, jsonify, Response
 from flask_pymongo import PyMongo, MongoClient
 
-client = MongoClient(app.config['MONGO_URI'], tlsAllowInvalidCertificates=True)  # Establish connection to MongoDB
-db = client['db']  # Use your database name
+client = MongoClient('mongodb://localhost:27017/')  # Establish connection to MongoDB
+db = client['AiRecruit']  # Use your database name
 collection = db['job_applications']  # Use your collection name
+
+
 
 
 def get_current_user_id():
@@ -27,7 +28,7 @@ def get_current_user_id():
     return user_id
 
 
-@app.route('/job-applications', methods=['GET'])
+@api.route('/job-applications', methods=['GET'])
 def get_job_applications():
     # Retrieve job applications for the logged-in user
     user_id = get_current_user_id()  # Implement this function to get the user ID
@@ -39,10 +40,8 @@ def get_job_applications():
 
     # If not, jsonify the data and return
     return jsonify(job_applications)
-
-
 # Endpoint to update job application status
-@app.route('/job-application/<job_application_id>', methods=['PUT'])
+@api.route('/job-application/<job_application_id>', methods=['PUT'])
 def update_job_application_status(job_application_id):
     # Update the status of the specified job application
     new_status = request.json.get('status')
@@ -84,7 +83,7 @@ def apply_for_job():
     return jsonify({'fit_score': fit_score})
 
 
-@app.route('/save-application', methods=['POST'])
+@api.route('/save-application', methods=['POST'])
 def save_application():
     try:
         data = request.form
@@ -112,6 +111,7 @@ def save_application():
         return jsonify({'error': str(e)}), 500
 
 
+
 # Assuming you have a MongoDB collection named 'job_applications'
 # where each document represents a job application
 
@@ -131,7 +131,6 @@ def get_job_applications_for_user(user_id):
     except Exception as e:
         return {'error': str(e)}, 500
 
-
 def update_job_application_status_in_database(job_application_id, new_status):
     """
     Update the status of a job application in the database.
@@ -147,11 +146,11 @@ def update_job_application_status_in_database(job_application_id, new_status):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+from flask import request
 
 from flask import request
 
-
-@app.route('/jobss', methods=['POST'])
+@api.route('/jobs', methods=['POST'])
 def create_job():
     try:
         # Parse the incoming request to get the job details
@@ -173,7 +172,6 @@ def create_job():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 def calculate_fit_score(user_skills, job_requirements):
     if not job_requirements:
         return 0  # Return 0 if no job requirements are specified
@@ -181,9 +179,7 @@ def calculate_fit_score(user_skills, job_requirements):
     common_skills = set(user_skills) & set(job_requirements)
     fit_score = (len(common_skills) / len(job_requirements)) * 100
     return fit_score
-
-
-@app.route('/jobss/<job_id>', methods=['GET'])
+@api.route('/jobs/<job_id>', methods=['GET'])
 def get_job_details(job_id):
     try:
         job = mongo.db.jobs.find_one({'_id': ObjectId(job_id)})
@@ -196,7 +192,3 @@ def get_job_details(job_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-CORS(app)
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=10000)

@@ -1,6 +1,6 @@
 from flask import redirect, jsonify
 from flask import request
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token, verify_jwt_in_request
 
 from flask_restx import Resource
 from google.auth.transport import requests as google_requests
@@ -26,29 +26,34 @@ def allowed_file(filename):
 
 @api.route('/signup')
 class Signup(Resource):
-    @staticmethod
-    def post():
-        """Create a new user with profile picture"""
-        if 'file' not in request.files:
-            return {'message': 'No file part'}, 401
 
-        file = request.files['file']
-        if file.filename == '':
-            return {'message': 'No selected file'}, 402
+    def post(self):
+        """Sign in user"""
+        json_data = request.json
+        email = json_data.get('email')
+        password = json_data.get('password')
+        name = json_data.get('name')
 
-        if file and allowed_file(file.filename):
-            email = request.form.get('email')
-            name = request.form.get('name')
-            password = request.form.get('password')
-            role = request.form.get('role')
-
-            # Delegate to AuthController
-            return AuthController.signup(mongo, email, name, password, file, role)
-        else:
-            return {'message': 'Invalid file type'}, 400
+        # Delegate to AuthController
+        return AuthController.signup(mongo, email, name, password)
 
 
 # Assuming you have the necessary imports and api setup
+@api.route('/tokenIsValid')
+class token_is_valid(Resource):
+    @jwt_required()
+    def get(self):
+        try:
+            verify_jwt_in_request()
+            user_id = get_jwt_identity()
+            u = UserRepository.find_by_email(mongo,user_id)
+            u['_id'] = str(u['_id'])
+            access_token = create_access_token(identity=user_id)
+
+            return {"valid": True, "user": u,"token": access_token}, 200
+        except Exception as e:
+            return {"valid": False, "message": str(e)}, 401
+
 
 @api.route('/signin')
 class Signin(Resource):
@@ -67,72 +72,74 @@ class Signin(Resource):
 
 @api.route('/users')
 class UserList(Resource):
-    #@jwt_required()
+    # @jwt_required()
     def get(self):
         """List all users"""
         # Directly using mongo.db might require you to import or access the database instance appropriately
         serialized_users = UserController.get_all_users(mongo.db)
         return serialized_users, 200
 
-    @api.route('/forgot_password')
-    class ForgotPassword(Resource):
-        @api.expect(forgot_password_model, validate=True)
-        def post(self):
-            """Forgot password"""
-            email = request.json.get('email')
-            return AuthController.forgot_password(mongo, email)
 
-    @api.route('/reset_password')
-    class ResetPassword(Resource):
-        @api.expect(reset_password_model, validate=True)
+@api.route('/forgot_password')
+class ForgotPassword(Resource):
+    @api.expect(forgot_password_model, validate=True)
+    def post(self):
+        """Forgot password"""
+        email = request.json.get('email')
+        return AuthController.forgot_password(mongo, email)
+
+
+@api.route('/reset_password')
+class ResetPassword(Resource):
+    @api.expect(reset_password_model, validate=True)
+    def post(self):
+        """Reset password"""
+        json_data = request.json
+        email = json_data['email']
+        new_password = json_data['new_password']
+
+        # Delegate to AuthController
+        return AuthController.reset_password(mongo, email, new_password)
+
+    @api.route('/ping')
+    class ping(Resource):
+        def post(self):
+            """Reset password"""
+
+            # Send a ping to confirm a successful connection
+            try:
+                res = mongo.admin.command('ping')
+                print("Pinged your deployment. You successfully connected to MongoDB!")
+            except Exception as e:
+                print(e)
+                return 401
+
+            # Delegate to AuthController
+            return 200
+
+    @api.route('/set-password')
+    class SetPassword(Resource):
+        @api.expect(set_password_model, validate=True)
         def post(self):
             """Reset password"""
             json_data = request.json
             email = json_data['email']
-            new_password = json_data['new_password']
+            new_password = json_data['password']
 
-            # Delegate to AuthController
-            return AuthController.reset_password(mongo, email, new_password)
+            # Delegate the business logic to the AuthController
+            return AuthController.set_password(mongo, email, new_password)
 
-        @api.route('/ping')
-        class ping(Resource):
-            def post(self):
-                """Reset password"""
+    @api.route('/verify_code')
+    class VerifyCode(Resource):
+        @api.expect(verify_code_model, validate=True)
+        def post(self):
+            """Verify verification code"""
+            json_data = request.json
+            email = json_data['email']
+            code = json_data['code']
 
-                # Send a ping to confirm a successful connection
-                try:
-                    res = mongo.admin.command('ping')
-                    print("Pinged your deployment. You successfully connected to MongoDB!")
-                except Exception as e:
-                    print(e)
-                    return 401
-
-                # Delegate to AuthController
-                return 200
-
-        @api.route('/set-password')
-        class SetPassword(Resource):
-            @api.expect(set_password_model, validate=True)
-            def post(self):
-                """Reset password"""
-                json_data = request.json
-                email = json_data['email']
-                new_password = json_data['password']
-
-                # Delegate the business logic to the AuthController
-                return AuthController.set_password(mongo, email, new_password)
-
-        @api.route('/verify_code')
-        class VerifyCode(Resource):
-            @api.expect(verify_code_model, validate=True)
-            def post(self):
-                """Verify verification code"""
-                json_data = request.json
-                email = json_data['email']
-                code = json_data['code']
-
-                # Delegate business logic to the AuthController
-                return AuthController.verify_code(mongo, email, code)
+            # Delegate business logic to the AuthController
+            return AuthController.verify_code(mongo, email, code)
 
 
 def exchange_token(code):

@@ -23,7 +23,7 @@ class JobController:
         return serialized_jobs
 
     def get_job_by_id(self, job_id):
-        job = self.model.get_job_by_id(ObjectId(job_id))
+        job = self.model.get_job_by_id(job_id)
         if job:
             job['_id'] = str(job['_id'])  # Convert ObjectId to string
             return job

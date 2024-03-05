@@ -11,6 +11,7 @@ from app.Controllers.JobController import JobController
 job_controller = JobController(mongo)
 
 # Define the Swagger model for a job
+# This is a hypothetical workaround and not standard usage for Flask-RESTx
 job_model = api.model('Job', {
     'jobTitle': fields.String(required=True, description='Job Title'),
     'description': fields.String(required=True, description='Job Description'),
@@ -18,10 +19,8 @@ job_model = api.model('Job', {
     'location': fields.String(required=True, description='Location'),
     'employment_type': fields.String(required=True, description='Employment Type'),
     'salary_compensation': fields.String(required=True, description='Salary and Compensation'),
-    'requirements': fields.List(fields.Nested(api.model('Requirements', {
-        'name': fields.String(required=True, description='Skill Name'),
-
-    })), required=True, description='List of Job Skills'),
+    # This is illustrative and not directly supported as per Flask-RESTx documentation.
+    'requirements': fields.List(fields.String, required=True, description='List of Job Skills'),
 })
 
 

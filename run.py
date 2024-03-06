@@ -8,10 +8,14 @@ from app import app, mongo
 from flask import Flask, request, jsonify, Response
 from flask_pymongo import PyMongo, MongoClient
 
+from app.Controllers.JobController import JobController
+
 client = MongoClient(app.config['MONGO_URI'], tlsAllowInvalidCertificates=True)  # Establish connection to MongoDB
 db = client['db']  # Use your database name
 collection = db['job_applications']  # Use your collection name
 
+# Instantiate the controller
+job_controller = JobController(mongo)
 
 def get_current_user_id():
     """
@@ -50,19 +54,6 @@ def update_job_application_status(job_application_id):
     return jsonify({'message': 'Job application status updated successfully'})
 
 
-def get_job_requirements(job_id):
-    try:
-        # Assuming you have a MongoDB collection named 'jobs' where each document represents a job posting
-        job = db.jobs.find_one({'_id': ObjectId(job_id)})
-        if job:
-            return job.get('requirements', [])  # Assuming 'requirements' is a field in your job document
-        else:
-            return []  # If job not found or no requirements specified, return an empty list
-    except Exception as e:
-        print(f"Error retrieving job requirements: {e}")
-        return []  # Return empty list on error
-
-
 @app.route('/apply-for-job', methods=['POST'])
 def apply_for_job():
     # Retrieve job application data from request
@@ -74,7 +65,9 @@ def apply_for_job():
 
     # Retrieve job requirements from database based on job ID
     job_id = job_application_data.get('job_id')
-    job_requirements = get_job_requirements(job_id)
+    job = job_controller.get_job_by_id(job_id)
+
+    job_requirements = job['requirements']
 
     # Calculate fit score based on user skills and job requirements
     fit_score = calculate_fit_score(user_skills, job_requirements)
@@ -151,29 +144,6 @@ def update_job_application_status_in_database(job_application_id, new_status):
 from flask import request
 
 
-@app.route('/jobss', methods=['POST'])
-def create_job():
-    try:
-        # Parse the incoming request to get the job details
-        job_data = request.json
-        job_description = job_data.get('description')
-        job_title = job_data.get('jobTitle')
-        job_location = job_data.get('location')
-        job_requirements = job_data.get('requirements')  # Add requirements
-
-        # Insert the job details into the database
-        job_id = mongo.db.jobs.insert_one({
-            'description': job_description,
-            'jobTitle': job_title,
-            'location': job_location,
-            'requirements': job_requirements,  # Insert requirements
-        }).inserted_id
-
-        return jsonify({'message': 'Job created successfully', 'job_id': str(job_id)}), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 def calculate_fit_score(user_skills, job_requirements):
     if not job_requirements:
         return 0  # Return 0 if no job requirements are specified
@@ -182,19 +152,6 @@ def calculate_fit_score(user_skills, job_requirements):
     fit_score = (len(common_skills) / len(job_requirements)) * 100
     return fit_score
 
-
-@app.route('/jobss/<job_id>', methods=['GET'])
-def get_job_details(job_id):
-    try:
-        job = mongo.db.jobs.find_one({'_id': ObjectId(job_id)})
-        if job:
-            # Convert ObjectId to string before returning
-            job['_id'] = str(job['_id'])
-            return jsonify(job), 200
-        else:
-            return jsonify({'error': 'Job not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 CORS(app)

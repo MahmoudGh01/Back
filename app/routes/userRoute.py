@@ -1,3 +1,4 @@
+from bson import ObjectId
 from flask import redirect, jsonify
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token, verify_jwt_in_request
@@ -119,8 +120,10 @@ class ResetPassword(Resource):
 
     @api.route('/set-password')
     class SetPassword(Resource):
+
         @api.expect(set_password_model, validate=True)
         def post(self):
+
             """Reset password"""
             json_data = request.json
             email = json_data['email']
@@ -233,7 +236,8 @@ class GoogleSignIn(Resource):
                 "name": user['name'],
                 "email": user['email'],
                 "profile_picture": picture,
-                "google_id": sub
+                "google_id": sub,
+                "skills": user['skills']
             }
         access_token = create_access_token(identity=email)
 
@@ -263,21 +267,23 @@ class WhoAmI(Resource):
             return {"msg": "Invalid JWT claims"}, 400
 
 
+
 @api.route('/edit-user/<user_id>')
 class EditUser(Resource):
-    # @jwt_required()  # If the user must be logged in to edit their data
-    @api.expect(edit_user_model, validate=True)  # Using a defined request payload validation
+    @api.expect(edit_user_model, validate=True)
     def put(self, user_id):
         """
-        Functionality: Updates user properties based on the email and/or available methods.
-        - First, find the specific user with the parameter 'user_id'.
-        - Update the member properties in the data store that are allowed to be updated.
-        - Vehicle for changes could be the data from a combination of the validated model,
-          by checking incoming key, values in a model payload, or other business logic.
+        Update user details.
         """
+        try:
+            # Convert user_id from string to ObjectId
+            oid = ObjectId(user_id)
+        except:
+            return {'message': 'Invalid user ID format'}, 400
 
-        result = UserController.edit_user(db=mongo.db, user_id=user_id, **api.payload)
+        # Proceed with the update using the oid
+        result = UserController.edit_user(db=mongo, user_id=oid, **api.payload)
         if result:
-            return {'message': 'User updated successfully'}, 200
+            return {'message': result}, 200
         else:
-            return {'message': 'An error occurred, user not found or other error info.'}, 404
+            return {'message': 'User not found or update failed'}, 404

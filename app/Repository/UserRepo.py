@@ -68,6 +68,11 @@ class UserRepository:
         user = mongo.db.users.find_one({'email': email})
         return user
 
+    @staticmethod
+    def get_by_id(mongo, user_id):
+        user = mongo.db.users.find_one({'_id': user_id})
+        return user
+
 
 class PasswordResetCode:
     @staticmethod

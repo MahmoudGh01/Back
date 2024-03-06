@@ -49,4 +49,5 @@ edit_user_model = api.model('EditUser', {
     'name': fields.String(required=False, description='The user\'s name'),
     'profile_picture': fields.String(required=False, description='URL to the user\'s profile picture'),
     'role': fields.String(required=False, description='The role of the user in the system'),
+    'skills': fields.List(fields.String, required=True, description='List of Job Skills'),
 })

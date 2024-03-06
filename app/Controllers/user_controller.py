@@ -1,12 +1,13 @@
 from app.Models.userModel import User
 from app.Repository import UserRepo
+from app.Repository.UserRepo import UserRepository
 
 
 class UserController:
     @staticmethod
     def edit_user(db, user_id, **kwargs):
         # Find the user by ID
-        user = db.users.find_one({"_id": user_id})
+        user = UserRepo.UserRepository.get_by_id(db, user_id)
         if not user:
             return "User not found", 404
 
@@ -27,10 +28,15 @@ class UserController:
             user.profile_picture = kwargs['profile_picture']
         if 'role' in kwargs:
             user.role = kwargs['role']
+        if 'skills' in kwargs:
+            user['skills'] = kwargs['skills']
 
-        # Save the updated user back to the database
-        db.save(user)  # Assuming your database has a save method for updates
-        return "User updated successfully", 200
+        update_result = db.db.users.update_one({"_id": user_id}, {"$set": user})
+        if update_result.modified_count > 0:
+            return "User updated successfully", 200
+        else:
+            return "User update failed", 500
+
     @staticmethod
     def get_all_users(db):
         users = UserRepo.UserRepository.find_all(db)

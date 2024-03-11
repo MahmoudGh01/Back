@@ -1,7 +1,8 @@
 from bson import ObjectId
 from flask import redirect, jsonify
 from flask import request
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token, verify_jwt_in_request
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token, verify_jwt_in_request, \
+    create_refresh_token
 
 from flask_restx import Resource
 from google.auth.transport import requests as google_requests
@@ -47,20 +48,28 @@ class token_is_valid(Resource):
         try:
             verify_jwt_in_request()
             user_id = get_jwt_identity()
-            u = UserRepository.find_by_email(mongo,user_id)
+            u = UserRepository.find_by_email(mongo, user_id)
             u['_id'] = str(u['_id'])
             access_token = create_access_token(identity=user_id)
 
-            return {"valid": True, "user": u,"token": access_token}, 200
+            return {"valid": True, "user": u, "token": access_token}, 200
         except Exception as e:
             return {"valid": False, "message": str(e)}, 401
+
+
+@api.route('/refreshToken')
+class RefreshToken(Resource):
+    @jwt_required(refresh=True)
+    def post(self):
+        current_user = get_jwt_identity()
+        new_token = create_access_token(identity=current_user)
+        return {'access_token': new_token}, 200
 
 
 @api.route('/signin')
 class Signin(Resource):
     @api.expect(signin_model, validate=True)
     def post(self):
-        """Sign in user"""
         json_data = request.json
         email = json_data.get('email')
         password = json_data.get('password')
@@ -75,7 +84,6 @@ class Signin(Resource):
 class UserList(Resource):
     # @jwt_required()
     def get(self):
-        """List all users"""
         # Directly using mongo.db might require you to import or access the database instance appropriately
         serialized_users = UserController.get_all_users(mongo.db)
         return serialized_users, 200
@@ -123,7 +131,6 @@ class ResetPassword(Resource):
 
         @api.expect(set_password_model, validate=True)
         def post(self):
-
             """Reset password"""
             json_data = request.json
             email = json_data['email']
@@ -239,9 +246,10 @@ class GoogleSignIn(Resource):
                 "google_id": sub,
                 "skills": user['skills']
             }
-        access_token = create_access_token(identity=email)
 
-        return {"token": access_token, "user": user_data}, 200
+        access_token = create_access_token(identity=email)
+        refresh_token = create_refresh_token(identity=email)
+        return {"token": access_token, "user": user_data,"refresh" : refresh_token}, 200
 
 
 @api.route('/whoami', methods=['GET'])
@@ -265,7 +273,6 @@ class WhoAmI(Resource):
                 return {"msg": "User not found"}, 404
         else:
             return {"msg": "Invalid JWT claims"}, 400
-
 
 
 @api.route('/edit-user/<user_id>')

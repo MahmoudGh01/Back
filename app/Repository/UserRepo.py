@@ -26,7 +26,7 @@ class UserRepository:
 
     @staticmethod
     def update_password(db, email, hashed_password):
-        db.users.update_one({'email': email}, {'$set': {'password': hashed_password}})
+        db.db.users.update_one({'email': email}, {'$set': {'password': hashed_password}})
 
     @staticmethod
     def update_user_password(db, user_id, hashed_password):
@@ -77,8 +77,8 @@ class UserRepository:
 class PasswordResetCode:
     @staticmethod
     def insert_code(db, email, code):
-        db.password_reset_codes.insert_one({'email': email, 'code': code})
+        db.db.password_reset_codes.insert_one({'email': email, 'code': code})
 
     @staticmethod
     def find_code(db, email, code):
-        return db.password_reset_codes.find_one({'email': email, 'code': code})
+        return db.db.password_reset_codes.find_one({'email': email, 'code': code})

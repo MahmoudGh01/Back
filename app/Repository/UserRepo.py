@@ -4,7 +4,8 @@ from app.Utils.utils import hash_password
 
 class UserRepository:
     @staticmethod
-    def create_user(db, email, password, name, lastname="None", title="None", birthdate="None", profile_picture="None", role="user", google_id="None"):
+    def create_user(db, email, password, name, lastname="None", title="None", birthdate="None", profile_picture="None",
+                    role="user", google_id="None"):
         """
         Creates a new user document in the MongoDB database.
         """
@@ -58,6 +59,14 @@ class UserRepository:
         Retrieves a user document from the MongoDB database by username.
         """
         user = db.db.users.find_one({'username': username})
+        return user
+
+    @staticmethod
+    def find_by_id(db, username):
+        """
+        Retrieves a user document from the MongoDB database by username.
+        """
+        user = db.db.users.find_one({'_id': username})
         return user
 
     @staticmethod

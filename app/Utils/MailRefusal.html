@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Refusal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo img {
+            max-width: 80px;
+        }
+        .refusal-message {
+            background-color: #3474ea; /* Red */
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://i.ibb.co/2NH3YHz/418571875-7129425773809635-2966851991592473008-n.png" alt="logo" border="0">
+        </div>
+        <p>Dear {{ name }},</p>
+        <p>Thank you for taking the time to apply for our position. We have reviewed your application carefully, but we regret to inform you that we will not be moving forward with your application at this time.</p>
+        <div class="refusal-message">We appreciate your interest in our company.</div>
+        <p>This decision does not reflect on your qualifications or abilities, and we encourage you to apply for future openings for which you qualify. Best wishes in your job search and future professional endeavors.</p>
+    </div>
+</body>
+</html>

@@ -1,11 +1,9 @@
-
 import random
 import string
 
 from flask import render_template_string
 from flask_jwt_extended import create_access_token, create_refresh_token
 from flask_mail import Message
-
 
 from app import mail
 from app.Repository.UserRepo import UserRepository, PasswordResetCode
@@ -44,7 +42,7 @@ class AuthController:
 
     @staticmethod
     def forgot_password(db, email):
-        user = UserRepository.find_by_email(db,email)
+        user = UserRepository.find_by_email(db, email)
         if not user:
             return {'error': 'Email not found'}, 404
 
@@ -78,9 +76,10 @@ class AuthController:
                 "password": user['password'],
                 "name": user['name'],
                 "email": user['email'],
+                "role": user['role'],
                 "_id": str(user['_id'])  # Assuming MongoDB usage
             }
-            return {"token": access_token, "user": user_data, "refresh": refresh_token }, 200
+            return {"token": access_token, "user": user_data, "refresh": refresh_token}, 200
         else:
             return {'error': 'Invalid credentials'}, 401
 
@@ -92,6 +91,32 @@ def send_email1(recipient, subject, verification_code):
 
     # Render the HTML template with the verification code
     html_content = render_template_string(html_content, verification_code=verification_code, email=recipient)
+
+    # Send the email
+    msg = Message(subject, recipients=[recipient])
+    msg.html = html_content
+    mail.send(msg)
+
+def send_refusal_email1(recipient, subject, name):
+    with open(
+            'app/Utils/MailRefusal.html',
+            'r') as file:
+        html_content = file.read()
+
+    # Render the HTML template with the first name and last name
+    html_content = render_template_string(html_content, name=name)
+
+    # Send the email
+    msg = Message(subject, recipients=[recipient])
+    msg.html = html_content
+    mail.send(msg)
+def send_accept_email(recipient, subject, name):
+    # Assuming you have a template named 'MailRefuse.html' for refusal emails
+    with open('app/Utils/MailAccept.html', 'r') as file:
+        html_content = file.read()
+
+    # Render the HTML template with the first name and last name
+    html_content = render_template_string(html_content, name=name)
 
     # Send the email
     msg = Message(subject, recipients=[recipient])

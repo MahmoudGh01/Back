@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - Backend-AiRecruit
+name: Build and deploy Python app to Azure Web App - Tester
 
 on:
   push:
@@ -29,7 +29,6 @@ jobs:
       
       - name: Install dependencies
         run: pip install -r requirements.txt
-      
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
@@ -66,14 +65,14 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v1
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_1DBD1299A0354598ABA71F27D182FFAE }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_A15489B68BCC4F71A5832F380FA78D27 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8433C704062E43218C423ADBC7B1D7D1 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_0A96F4D60A7449A59BECF17D6801298A }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E0A52C84D5B04CEABBEAF0E2927FE0D9 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E00393224BBE4D2088CDCDEA9FAF7BED }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
         id: deploy-to-webapp
         with:
-          app-name: 'Backend-AiRecruit'
+          app-name: 'Tester'
           slot-name: 'Production'
           

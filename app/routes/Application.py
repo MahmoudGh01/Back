@@ -322,17 +322,6 @@ def fetch_job_ids_from_applications():
 scheduler = BackgroundScheduler()
 
 
-# Initialize FCM with your Firebase server key
-# push_service = FCMNotification(api_key="AAAAj9DbS5U:APA91bHaXdD_iUoV7KFEWRgrtt3kE1RFjl0ahdlRzSVPUa-nVyzqerOrqlefuS_k9qlJqBMV1wTCUem8G7c5a9OTz44j0IG1pMwENIQjN6DoSn5iH5eZYsp4eATjCP7LKKQAbBrPOBXF")
-
-# def send_push_notification(tokens, title, message):
-#     result = push_service.notify_multiple_devices(
-#         registration_ids=tokens,
-#         message_title=title,
-#         message_body=message
-#     )
-#     return result
-
 def scheduled_evaluation():
     applications_cursor = db.job_applications.find()
 
@@ -379,7 +368,6 @@ def scheduled_evaluation():
 
         # Process the bottom 80% of applications
         for y, score in scored_applications[top_20_percent_index:]:
-
             send_refusal_email(y.get('email'), f"{y.get('firstName')} {y.get('lastName')}")
             collection.update_one(
                 {'_id': ObjectId(y.get('_id'))},
@@ -388,20 +376,12 @@ def scheduled_evaluation():
             update_application_status(y.get('_id'), 'refused')
             print(f"Refused: {y.get('email')} with final score {score} STATUS :{y.get('status')}")
 
-    # Send a push notification to notify that the evaluation has been completed
-    # device_tokens = ["DEVICE_TOKEN_1", "DEVICE_TOKEN_2"]  # Replace with actual device tokens
-    # send_push_notification(
-    #     tokens=device_tokens,
-    #     title="Job Application Update",
-    #     message="The job application evaluation has been completed."
-    # )
-
 
 # Schedule the evaluation function to run at a specific date and time
-scheduler.add_job(scheduled_evaluation, 'date', run_date='2024-03-12 22:16:00')
+#scheduler.add_job(scheduled_evaluation, 'date', run_date='2024-03-12 22:16:00')
 
 # Start the scheduler
-scheduler.start()
+#scheduler.start()
 
 
 def get_job_applications_for_user(user_id):

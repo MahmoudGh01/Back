@@ -1,28 +1,18 @@
-import base64
-import datetime
-from sched import scheduler
-
-import schedule
-from apscheduler.schedulers.background import BackgroundScheduler
-from flask_cors import CORS
 import os
 
-from pyfcm import FCMNotification
-from sentence_transformers import SentenceTransformer
-from pdfminer.high_level import extract_text
-from bson import ObjectId
 # from werkzeug.utils import secure_filename
 import numpy as np
+import spacy
+from apscheduler.schedulers.background import BackgroundScheduler
+from bson import ObjectId
+from flask import jsonify, Response
+from pdfminer.high_level import extract_text
+from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 
 from app import app, mongo
-from flask import Flask, request, jsonify, Response, current_app
-from flask_pymongo import PyMongo, MongoClient
-import spacy
-
-from app.Controllers.auth import send_email, send_accept_email, send_refusal_email1
+from app.Controllers.auth import send_accept_email, send_refusal_email1
 from app.Repository import UserRepo
-from app.Repository.UserRepo import UserRepository
 from app.routes.JobRoute import job_controller
 
 db = mongo.db  # Use your database name

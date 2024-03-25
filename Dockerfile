@@ -48,4 +48,4 @@ COPY . .
 EXPOSE 10000
 
 # Run the application.
-CMD python run.py
+CMD python application.py

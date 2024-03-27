@@ -1,7 +1,8 @@
 from flask import Flask, jsonify
+from flask_pymongo import PyMongo, MongoClient
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
-from flask_pymongo import PyMongo, MongoClient
+
 from flask_restx import Api
 from oauthlib import oauth2
 from werkzeug.security import generate_password_hash, check_password_hash

@@ -1,16 +1,22 @@
+import datetime
 import os
+from datetime import datetime, timedelta
+from math import ceil
+from flask import request
 
-# from werkzeug.utils import secure_filename
-import numpy as np
+import nltk
 import spacy
 from apscheduler.schedulers.background import BackgroundScheduler
 from bson import ObjectId
 from flask import jsonify, Response
+from flask_restx import Resource
+from keybert import KeyBERT
 from pdfminer.high_level import extract_text
-from sentence_transformers import SentenceTransformer
-from transformers import pipeline
+from sentence_transformers import SentenceTransformer, util
+from textblob import TextBlob
 
-from app import app, mongo
+from app import app, mongo, api
+from app.Controllers.JobController import JobController
 from app.Controllers.auth import send_accept_email, send_refusal_email1
 from app.Repository import UserRepo
 from app.routes.JobRoute import job_controller
@@ -97,7 +103,8 @@ def extract_text_from_pdf(pdf_path):
     return extract_text(pdf_path)
 
 
-nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_md")
+nltk.download('wordnet')
 
 
 # IA Analyze cv
@@ -116,55 +123,106 @@ def analyze_skills_with_spacy(cv_text, job_description):
 
 
 # Load a pre-trained English model
-nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_md")
 # Load a pre-trained sentence transformer model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
 # IA Analyze Skills User
-def analyze_skills_with_ai_enhanced(user_skills, job_required_skills, model, threshold):
-    score = 0
-    total_skills = len(job_required_skills)
+def analyze_skills_with_ai_enhanced(user_skills, job_required_skills):
+    model = SentenceTransformer('all-MiniLM-L6-v2')
 
-    # Create embeddings for user skills and job required skills
-    user_skills_embeddings = model.encode(user_skills)
-    job_skills_embeddings = model.encode(job_required_skills)
+    # Generate embeddings
+    user_embeddings = model.encode(user_skills, convert_to_tensor=True)
+    job_embeddings = model.encode(job_required_skills, convert_to_tensor=True)
 
-    # Compute cosine similarity between user skills and job required skills
-    similarity_matrix = np.inner(user_skills_embeddings, job_skills_embeddings)
+    # Calculate similarities
+    similarities = util.pytorch_cos_sim(user_embeddings, job_embeddings)
 
-    # Count matches based on a threshold
-    for user_skill_similarities in similarity_matrix:
-        if max(user_skill_similarities) > threshold:  # Adjust the threshold as needed
-            score += 1
+    # Define a threshold for considering a match (e.g., 0.4)
+    match_threshold = 0.4
 
-    # Calculate percentage
-    if total_skills > 0:
-        percentage_score = (score / total_skills) * 100
+    # Count matches above the threshold
+    matches = (similarities > match_threshold).sum()
+
+    # Calculate percentage score
+    if len(job_required_skills) > 0:
+        percentage_score = ((matches / len(job_required_skills)).item()) * 100
     else:
-        percentage_score = 0  # Avoid division by zero if there are no skills listed
+        percentage_score = 0  # Avoid division by zero
 
     return percentage_score
 
 
-# IA Analyze Cover Letter
 def analyze_cover_letter_transformers(cover_letter):
-    """
-    Analyzes the cover letter using a pre-trained sentiment analysis model
-    and returns a score.
-    """
-    # Load a pre-trained sentiment analysis pipeline
-    sentiment_pipeline = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+    # Initialize models
+    kw_model = KeyBERT(model='all-MiniLM-L6-v2')
+    st_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-    # Analyze the cover letter
-    result = sentiment_pipeline(cover_letter)
+    # Analyze linguistic quality (grammar, sentiment)
+    blob = TextBlob(cover_letter)
+    grammar_quality = blob.sentences[0].polarity  # Simple sentiment as a proxy for positivity
+    complexity_score = len(blob.words) / len(blob.sentences)  # Word to sentence ratio
 
-    # Convert the result to a score
-    if result[0]['label'] == 'POSITIVE':
-        score = result[0]['score'] * 100  # Scale to 0-100
+    # Extract and evaluate key skills/keywords
+    keywords = kw_model.extract_keywords(cover_letter, keyphrase_ngram_range=(1, 2), stop_words='english',
+                                         use_maxsum=True, top_n=5)
+    keyword_embeddings = st_model.encode([kw[0] for kw in keywords], convert_to_tensor=True)
+    cover_letter_embedding = st_model.encode(cover_letter, convert_to_tensor=True)
+    if keyword_embeddings.shape[0] > 0:
+        if keyword_embeddings.shape[0] > 1:
+            keyword_mean_embedding = keyword_embeddings.mean(dim=0)
+        else:
+            keyword_mean_embedding = keyword_embeddings
+
+        coherence_score = util.pytorch_cos_sim(cover_letter_embedding, keyword_mean_embedding).item()
     else:
-        score = (1 - result[0]['score']) * 100  # Invert and scale for negative sentiment
-    return score
+        coherence_score = 0  # Set a default value if no keywords are extracted
+
+    # Combine scores into a final assessment
+    final_score = ((grammar_quality + 1) / 2 * 25) + (complexity_score * 25) + (coherence_score * 50)
+
+    # Convert to percentage
+    final_score_percentage = final_score * 100
+
+    return final_score_percentage
+
+
+def find_meeting_time(job_availabilities, user_availabilities):
+    """
+    Finds a meeting time given job and user availabilities.
+
+    Args:
+    - job_availabilities: List of tuples representing available datetime ranges for the job [(start, end), ...]
+    - user_availabilities: List of tuples representing available datetime ranges for the user [(start, end), ...]
+
+    Returns:
+    - A list of datetime objects representing the start time of possible meetings.
+    """
+
+    # Convert string datetime to actual datetime objects if they are not already
+    job_availabilities = [(datetime.strptime(start, "%Y-%m-%d %H:%M"), datetime.strptime(end, "%Y-%m-%d %H:%M"))
+                          for start, end in job_availabilities]
+    user_availabilities = [(datetime.strptime(start, "%Y-%m-%d %H:%M"), datetime.strptime(end, "%Y-%m-%d %H:%M"))
+                           for start, end in user_availabilities]
+
+    # Meeting duration in minutes
+    meeting_duration = 30
+
+    # Find overlaps
+    possible_meetings = []
+    for job_start, job_end in job_availabilities:
+        for user_start, user_end in user_availabilities:
+            # Find the overlap range
+            overlap_start = max(job_start, user_start)
+            overlap_end = min(job_end, user_end)
+
+            # Check if there is enough time for a meeting
+            if (overlap_end - overlap_start) >= timedelta(minutes=meeting_duration):
+                possible_meetings.append(overlap_start)
+
+    # Return possible meeting start times
+    return possible_meetings
 
 
 # save application and add scores
@@ -174,9 +232,7 @@ def save_application():
         data = request.form
 
         new_application = {
-
             'userID': data.get('userId'),
-
             'coverLetter': data.get('coverLetter'),
             'status': 'on hold',  # Default status
             'job_id': data.get('job_id')  # Add job_id
@@ -203,7 +259,7 @@ def save_application():
 
         # Calculate individual scores
         score_cv = analyze_skills_with_spacy(extract_text_from_pdf(filename), required_skills)
-        score_skills = analyze_skills_with_ai_enhanced(user_skills, required_skills, model, 0.7)
+        score_skills = analyze_skills_with_ai_enhanced(user_skills, required_skills)
         score_cover_letter = analyze_cover_letter_transformers(new_application['coverLetter'])
 
         # Calculate the final score as an average of individual scores
@@ -233,8 +289,6 @@ def save_application():
         return jsonify({'error': str(e)}), 500
 
 
-# Assuming you have a MongoDB collection named 'job_applications'
-# where each document represents a job application
 def fetch_applications(job_id):
     # Connect to your database
     db = mongo.db  # Assuming you're using MongoDB with Flask-PyMongo
@@ -322,66 +376,84 @@ def fetch_job_ids_from_applications():
 scheduler = BackgroundScheduler()
 
 
-def scheduled_evaluation():
-    applications_cursor = db.job_applications.find()
+def scheduled_evaluation(job_id, end_date):
+    # Fetch the applications for the specific job
+    applications_for_job = list(db.job_applications.find({'job_id': job_id}))
+    print(f"Applications for job {job_id}: {applications_for_job}")
 
-    # Create a set to store unique job IDs
-    job_ids = set()
+    # Analyze and score each application
+    scored_applications = []
+    for app in applications_for_job:
+        # Assuming 'final_score' is correctly calculated and stored in each app document
+        final_score = app.get('final_score')
+        user = db.users.find_one({'_id': ObjectId(app.get('userID'))})
+        user_name = user.get('name')
+        print(f"Final score: {final_score}")
+        scored_applications.append((app, final_score))
 
-    # Iterate over the cursor to extract job IDs and add them to the set
-    for app in applications_cursor:
-        job_ids.add(app.get('job_id'))
+    print(f"Scored applications: {scored_applications}")
 
-    print(f"Unique Job IDs: {job_ids}")
+    # Sort applications by score in descending order
+    scored_applications.sort(key=lambda x: x[1], reverse=True)
 
-    for job_id in job_ids:
-        applications_for_job = list(collection.find({'job_id': job_id}))
-        print(f"Applications for job {job_id}: {applications_for_job}")
+    # Determine the index for the top 20% of applications
+    top_20_percent_index = ceil(len(scored_applications) * 20 / 100)
+    print(f"Top 20% index: {top_20_percent_index}")
 
-        # Analyze and score each application
-        scored_applications = []
-        for s in applications_for_job:
-            # Assuming 'final_score' is correctly calculated and stored in each app document
-            final_score = s.get('final_score')
-            userId = s.get('userId')
-            print(f"final_score:{final_score}")
-            scored_applications.append((s, final_score))
+    # Process the top 20% of applications
+    for app, score in scored_applications[:top_20_percent_index]:
+        user = db.users.find_one({'_id': ObjectId(app.get('userID'))})
+        user_name = user.get('name')
+        user_email = user.get('email')
+        send_acceptance_email(user_email, user_name)
+        db.job_applications.update_one(
+            {'_id': ObjectId(app.get('_id'))},
+            {'$set': {'status': 'accepted'}}
+        )
+        print(f"Accepted: {user_email} with final score {score}")
 
-        print(f"Scored applications: {scored_applications}")
-
-        # Sort applications by score in descending order
-        scored_applications.sort(key=lambda x: x[1], reverse=True)
-
-        # Determine the index for the top 20% of applications
-        top_20_percent_index = len(scored_applications) * 20 // 100
-        print(f"top 20:{top_20_percent_index}")
-
-        # Process the top 20% of applications
-        for app, score in scored_applications[:top_20_percent_index]:
-            print(f"id: {app.get('_id')}")
-            # send_acceptance_email(app.get('email'),f"{app.get('firstName')} {app.get('lastName')}")
-            collection.update_one(
-                {'_id': ObjectId(app.get('_id'))},
-                {'$set': {'status': 'accepted'}}
-            )
-            print(f"Accepted: {app['email']} with final score {score} STATUS :{app.get('status')}")
-
-        # Process the bottom 80% of applications
-        for y, score in scored_applications[top_20_percent_index:]:
-            send_refusal_email(y.get('email'), f"{y.get('firstName')} {y.get('lastName')}")
-            collection.update_one(
-                {'_id': ObjectId(y.get('_id'))},
-                {'$set': {'status': 'refused'}}
-            )
-            update_application_status(y.get('_id'), 'refused')
-            print(f"Refused: {y.get('email')} with final score {score} STATUS :{y.get('status')}")
+    # Process the bottom 80% of applications
+    for app, score in scored_applications[top_20_percent_index:]:
+        user = db.users.find_one({'_id': ObjectId(app.get('userID'))})
+        user_name = user.get('name')
+        user_email = user.get('email')
+        send_refusal_email(user_email, user_name)
+        db.job_applications.update_one(
+            {'_id': ObjectId(app.get('_id'))},
+            {'$set': {'status': 'refused'}}
+        )
+        print(f"Refused: {user_email} with final score {score}")
 
 
-# Schedule the evaluation function to run at a specific date and time
-#scheduler.add_job(scheduled_evaluation, 'date', run_date='2024-03-12 22:16:00')
+applications_cursor = db.job_applications.find()
+job_controller = JobController(mongo)
+
+# Create a set to store unique job IDs
+job_ids = set()
+
+# Iterate over the cursor to extract job IDs and add them to the set
+for y in applications_cursor:
+    job_ids.add(y.get('job_id'))
+
+print(f"Unique Job ID: {job_ids}")
+
+for job_id in job_ids:
+    # Fetch the job document from the database using the job ID
+    job = job_controller.get_job_by_id(job_id)
+    if job:
+        end_date = job.get('end_date')
+        print(f"Job end_date: {end_date}")
+
+        if end_date:
+            # Convert end_date to datetime object using datetime.strptime
+            end_date_datetime = datetime.strptime(end_date, '%Y-%m-%dT%H:%M')
+            print(f"Job end_datess: {end_date_datetime}")
+
+            # Schedule the evaluation function to run at the specific date and time
+            scheduler.add_job(scheduled_evaluation, 'date', run_date=end_date_datetime, args=[job_id, end_date])
 
 # Start the scheduler
-#scheduler.start()
+scheduler.start()
 
 
 def get_job_applications_for_user(user_id):
@@ -415,9 +487,6 @@ def update_job_application_status_in_database(job_application_id, new_status):
         return jsonify({'message': 'Job application status updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-from flask import request
 
 
 # get accept user with job_id
@@ -548,17 +617,6 @@ def analyze_and_notify_applicants():
         # db.job_applications.update_one({'_id': ObjectId(application_id)}, {'$set': {'status': 'refused'}})
 
     return accepted_candidates
-
-
-# @app.route('/analyze-notify-accepted', methods=['GET'])
-# def get_and_notify_accepted_candidates():
-#     for application in get_job_applications1():
-#         job_id = application.get('job_id')
-#     accepted_candidates = evaluate_job_applications(job_id, 0.77)
-#     if accepted_candidates:
-#         return jsonify(accepted_candidates), 200
-#     else:
-#         return jsonify({"message": "No accepted candidates found or an error occurred."}), 404
 
 
 def fetch_applications_and_job_ids():

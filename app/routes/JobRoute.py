@@ -21,6 +21,8 @@ job_model = api.model('Job', {
     'salary_compensation': fields.String(required=True, description='Salary and Compensation'),
     # This is illustrative and not directly supported as per Flask-RESTx documentation.
     'requirements': fields.List(fields.String, required=True, description='List of Job Skills'),
+    'created_at': fields.DateTime(description='Date and Time of Job Creation', required=False, readonly=True),
+    'end_date': fields.DateTime(required=True, description='End Date of the Job'),
 })
 
 

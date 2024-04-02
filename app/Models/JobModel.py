@@ -1,7 +1,6 @@
 # JobModel.py
-from flask import jsonify
-from pymongo import MongoClient
 from bson import ObjectId
+from datetime import datetime
 
 
 class JobModel:
@@ -11,6 +10,7 @@ class JobModel:
     def create_job(self, data):
         # Generate a new ObjectId for the _id field
         # data['_id'] = str(ObjectId())
+        data['created_at'] = datetime.utcnow()
         return self.collection.insert_one(data).inserted_id
 
     def get_all_jobs(self):

@@ -1,4 +1,5 @@
 # JobController.py
+import datetime
 
 from flask import request
 from bson import ObjectId
@@ -19,6 +20,9 @@ class JobController:
         serialized_jobs = []
         for job in jobs:
             job['_id'] = str(job['_id'])  # Convert ObjectId to string
+            for key, value in job.items():
+                if isinstance(value, datetime.datetime):
+                    job[key] = value.isoformat()  # Convert datetime to ISO format string
             serialized_jobs.append(job)
         return serialized_jobs
 
@@ -26,6 +30,9 @@ class JobController:
         job = self.model.get_job_by_id(job_id)
         if job:
             job['_id'] = str(job['_id'])  # Convert ObjectId to string
+            for key, value in job.items():
+                if isinstance(value, datetime.datetime):
+                    job[key] = value.isoformat()  # Convert datetime to ISO format string
             return job
         else:
             return {'error': 'Job not found'}

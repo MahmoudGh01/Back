@@ -1,22 +1,25 @@
+import base64
+import uuid
+from io import BytesIO
+
+import qrcode
 from bson import ObjectId
 from flask import redirect, jsonify
 from flask import request
+from flask_cors import CORS
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, create_access_token, verify_jwt_in_request, \
     create_refresh_token
-
 from flask_restx import Resource
+from flask_socketio import SocketIO
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
-from pymongo.server_api import ServerApi
 
 from app import app, api, mongo, CLIENT_ID, URL_DICT, CLIENT, DATA
 from app.Controllers.auth import AuthController
 from app.Controllers.user_controller import UserController
 from app.Models.Payloads import signin_model, forgot_password_model, verify_code_model, set_password_model, \
     reset_password_model, edit_user_model
-from app.Models.userModel import User
 from app.Repository.UserRepo import UserRepository
-from app.Utils.utils import verify_password
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
 
@@ -25,6 +28,43 @@ def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+socketio = SocketIO(api.app, cors_allowed_origins="*")
+
+sessions = {}
+CORS(api.app)
+
+
+@api.route('/generate_qr')
+class generate_qr(Resource):
+    def get(self):
+        session_id = str(uuid.uuid4())
+        sessions[session_id] = {'authenticated': False}
+
+        # Generate QR code with session ID
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(session_id)
+        qr.make(fit=True)
+        img = qr.make_image(fill='black', back_color='white')
+        bi = BytesIO()
+        img.save(bi, format="PNG")
+        qr_code = base64.b64encode(bi.getvalue()).decode('utf-8')
+
+        return jsonify({'qr_code': qr_code, 'session_id': session_id})
+
+
+@socketio.on('validate_qr')
+def handle_validate_qr(json):
+    session_id = json['session_id']
+    user_id = json['user_id']
+    print(user_id)
+    print(session_id)
+    if session_id in sessions:
+        print("authenticated")
+        sessions[session_id]['authenticated'] = True
+        socketio.emit('authenticated', {'session_id': session_id})
+    else:
+        print(f"Session ID {session_id} not found")
 
 @api.route('/signup')
 class Signup(Resource):
@@ -97,6 +137,13 @@ class ForgotPassword(Resource):
         email = request.json.get('email')
         return AuthController.forgot_password(mongo, email)
 
+@api.route('/otp-verif')
+class ForgotPassword(Resource):
+    @api.expect(forgot_password_model, validate=True)
+    def post(self):
+        """Forgot password"""
+        email = request.json.get('email')
+        return AuthController.otp_verif(mongo, email)
 
 @api.route('/reset_password')
 class ResetPassword(Resource):
@@ -249,7 +296,7 @@ class GoogleSignIn(Resource):
 
         access_token = create_access_token(identity=email)
         refresh_token = create_refresh_token(identity=email)
-        return {"token": access_token, "user": user_data,"refresh" : refresh_token}, 200
+        return {"token": access_token, "user": user_data, "refresh": refresh_token}, 200
 
 
 @api.route('/whoami', methods=['GET'])

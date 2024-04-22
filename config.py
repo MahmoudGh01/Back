@@ -11,8 +11,8 @@ class Config:
     MAIL_PORT = 465
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
-    MAIL_USERNAME = 'airecruittn@gmail.com'  # Your Gmail email address
-    MAIL_PASSWORD = 'xqoy cere atgg ccxf'  # Your Gmail password
+    MAIL_USERNAME = 'mahmoud.gharbi@esprit.tn'  # Your Gmail email address
+    MAIL_PASSWORD = 'wntp knso uruk nczq'  # Your Gmail password
     MAIL_DEFAULT_SENDER = 'airecruittn@gmail.com'  # Default sender
 
     CLIENT_ID = '104792978938-smu99c48hkqint3g8afkm42ffeuikqig.apps.googleusercontent.com'

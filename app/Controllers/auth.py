@@ -53,6 +53,16 @@ class AuthController:
         send_email1(email, subject, new_verification_code)
 
         return {'message': 'Verification code sent to your email'}, 200
+    @staticmethod
+    def otp_verif(db, email):
+
+        new_verification_code = generate_random_code()
+        PasswordResetCode.insert_code(db, email, new_verification_code)
+
+        subject = "OTP Verification Code"
+        send_email1(email, subject, new_verification_code)
+
+        return {'message': 'Verification code sent to your email'}, 200
 
     @staticmethod
     def signup(db, email, name, password, role="User"):

@@ -9,6 +9,7 @@ import spacy
 from apscheduler.schedulers.background import BackgroundScheduler
 from bson import ObjectId
 from flask import jsonify, Response
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restx import Resource
 from keybert import KeyBERT
 from pdfminer.high_level import extract_text
@@ -18,7 +19,9 @@ from textblob import TextBlob
 from app import app, mongo, api
 from app.Controllers.JobController import JobController
 from app.Controllers.auth import send_accept_email, send_refusal_email1
+from app.Models import JobModel
 from app.Repository import UserRepo
+from app.Repository.UserRepo import UserRepository
 from app.routes.JobRoute import job_controller
 
 db = mongo.db  # Use your database name
@@ -39,18 +42,37 @@ def get_current_user_id():
     return user_id
 
 
-@app.route('/job-applications', methods=['GET'])
+@app.route('/job-applications/', methods=['GET'])
+@jwt_required()
 def get_job_applications():
-    # Retrieve job applications for the logged-in user
-    user_id = get_current_user_id()  # Implement this function to get the user ID
-    job_applications = get_job_applications_for_user(user_id)
+    try:
+        # Get the email from the JWT claims
+        print(request.headers.get('Authorization'))  # For debugging
+        identity = get_jwt_identity()
+        print("User email from JWT:", identity)
 
-    # Check if the response is already a Flask Response object
-    if isinstance(job_applications, Response):
-        return job_applications
+        # Fetch the user object by email to get the user ID
+        user = UserRepository.find_by_email(mongo, identity)
+        if not user:
+            print(f"No user found with the email: {identity}")
+            return jsonify({"error": "User not found"}), 404
 
-    # If not, jsonify the data and return
-    return jsonify(job_applications)
+        # The user's '_id' is the 'userID' in the job_application collection
+        user_id_str = str(user['_id'])
+        print(f"User ID as string: {user_id_str}")
+
+        # Query the job_application collection using the string 'userID'
+        cursor = db.job_applications.find({'userID': user_id_str})
+        applications = []
+        for doc in cursor:
+            doc['_id'] = str(doc['_id'])  # Convert ObjectId to string for JSON serialization
+            applications.append(doc)
+
+        print(f"Applications fetched for user {user_id_str}:", applications)
+        return jsonify(applications)
+    except Exception as e:
+        print("Error fetching applications:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 # Endpoint to update job application status
@@ -237,7 +259,7 @@ def save_application():
             'status': 'on hold',  # Default status
             'job_id': data.get('job_id')  # Add job_id
         }
-        print(data.get('userId'))
+        print("userId request form :" + data.get('userId'))
         # Save uploaded file
         cvPdf = request.files['cvPdf']
         filename = os.path.join(app.config['UPLOAD_FOLDER'], cvPdf.filename)
@@ -245,17 +267,19 @@ def save_application():
 
         # Convert filename to string before storing
         new_application['cvPdf'] = str(filename)
+
         user_id = ObjectId(data.get('userId'))
         user = UserRepo.UserRepository.get_by_id(mongo, user_id)
 
         print(user)
         user_skills = user['skills']
         print(user_skills)
+        print("new_application['job_id']: " + new_application['job_id'])
         job = job_controller.get_job_by_id(new_application['job_id'])
-
+        job_controller.get_job_by_id(job_id)
+        print("Job: " + job.get('jobTitle'))
         # Dynamically determine the required skills, here as an example
         required_skills = job.get('requirements', [])
-        model = SentenceTransformer('all-MiniLM-L6-v2')
 
         # Calculate individual scores
         score_cv = analyze_skills_with_spacy(extract_text_from_pdf(filename), required_skills)
@@ -272,6 +296,7 @@ def save_application():
         new_application['score_cover_letter'] = score_cover_letter
         new_application['final_score'] = final_score
 
+        # print("new _application"+new_application)
         # Check the final score and update status accordingly
         if final_score < 15:
             new_application['status'] = 'refused'

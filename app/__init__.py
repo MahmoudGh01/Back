@@ -101,4 +101,4 @@ URL_DICT = {
 
 CLIENT = oauth2.WebApplicationClient(CLIENT_ID)
 
-from app.routes import userRoute, FileManager, JobRoute, ProfileDetailRoute, Quizz, Application
+from app.routes import userRoute, FileManager, JobRoute, ProfileDetailRoute, Quizz, Application, payment

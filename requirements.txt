@@ -34,5 +34,6 @@ Click
 idna==3.2
 Jinja2
 MarkupSafe
+flask_socketio
 stripe==6.0.0
 toml==0.10.2

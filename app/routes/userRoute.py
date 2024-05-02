@@ -62,9 +62,10 @@ def handle_validate_qr(json):
     if session_id in sessions:
         print("authenticated")
         sessions[session_id]['authenticated'] = True
-        socketio.emit('authenticated', {'session_id': session_id})
+        socketio.emit('authenticated', {'session_id': session_id,'user_id': user_id})
     else:
         print(f"Session ID {session_id} not found")
+
 
 @api.route('/signup')
 class Signup(Resource):
@@ -137,6 +138,7 @@ class ForgotPassword(Resource):
         email = request.json.get('email')
         return AuthController.forgot_password(mongo, email)
 
+
 @api.route('/otp-verif')
 class ForgotPassword(Resource):
     @api.expect(forgot_password_model, validate=True)
@@ -144,6 +146,7 @@ class ForgotPassword(Resource):
         """Forgot password"""
         email = request.json.get('email')
         return AuthController.otp_verif(mongo, email)
+
 
 @api.route('/reset_password')
 class ResetPassword(Resource):
@@ -273,7 +276,7 @@ class GoogleSignIn(Resource):
                 "lastname": lastname,
                 "title": title,
                 "birthdate": birthdate,
-                "role": "user",
+                "role": user_id.get('role'),
                 "profile_picture": picture,
                 "google_id": sub
             }
@@ -285,7 +288,7 @@ class GoogleSignIn(Resource):
                 "lastname": lastname,
                 "title": title,
                 "birthdate": birthdate,
-                "role": "USER",
+                "role": user['role'],
                 "password": user['password'],
                 "name": user['name'],
                 "email": user['email'],

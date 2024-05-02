@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 
 from app import api, app
 
-ALLOWED_EXTENSIONS = {'pdf'}
+ALLOWED_EXTENSIONS = {'pdf','mp4','jpg','jpeg','gif'}
 
 
 def allowed_file(filename):
@@ -66,7 +66,7 @@ class GetFile(Resource):
 
         safe_filename = secure_filename(filename)
         try:
-            return send_from_directory(app.config['UPLOAD_FOLDER'], safe_filename, as_attachment=True)
+            return send_from_directory(directory=app.config['UPLOAD_FOLDER'], path=safe_filename, as_attachment=True)
         except FileNotFoundError:
             # Using 404 is more appropriate here as it indicates "Not Found"
             return {'message': 'No file found'}, 404

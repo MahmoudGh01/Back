@@ -53,6 +53,7 @@ class AuthController:
         send_email1(email, subject, new_verification_code)
 
         return {'message': 'Verification code sent to your email'}, 200
+
     @staticmethod
     def otp_verif(db, email):
 
@@ -107,6 +108,7 @@ def send_email1(recipient, subject, verification_code):
     msg.html = html_content
     mail.send(msg)
 
+
 def send_refusal_email1(recipient, subject, name):
     with open(
             'app/Utils/MailRefusal.html',
@@ -120,6 +122,8 @@ def send_refusal_email1(recipient, subject, name):
     msg = Message(subject, recipients=[recipient])
     msg.html = html_content
     mail.send(msg)
+
+
 def send_accept_email(recipient, subject, name):
     # Assuming you have a template named 'MailRefuse.html' for refusal emails
     with open('app/Utils/MailAccept.html', 'r') as file:

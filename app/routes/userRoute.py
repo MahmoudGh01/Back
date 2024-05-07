@@ -57,12 +57,14 @@ class generate_qr(Resource):
 def handle_validate_qr(json):
     session_id = json['session_id']
     user_id = json['user_id']
+    refresh_token = json['refresh_token']
     print(user_id)
     print(session_id)
+    print(refresh_token)
     if session_id in sessions:
         print("authenticated")
         sessions[session_id]['authenticated'] = True
-        socketio.emit('authenticated', {'session_id': session_id,'user_id': user_id})
+        socketio.emit('authenticated', {'session_id': session_id,'user_id': user_id , 'refresh_token':refresh_token})
     else:
         print(f"Session ID {session_id} not found")
 
